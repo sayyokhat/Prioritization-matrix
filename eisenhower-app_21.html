@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clarity — Eisenhower Matrix</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F2ED;
+    --ink: #1A1714;
+    --ink-soft: #6B6560;
+    --q1: #C9412A;
+    --q1-pale: #F5E8E5;
+    --q2: #2A6C9E;
+    --q2-pale: #E5EEF5;
+    --q3: #C98A2A;
+    --q3-pale: #F5EEE0;
+    --q4: #6B7B5E;
+    --q4-pale: #EAF0E5;
+    --radius: 16px;
+    --transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .screen { display: none; animation: fadeUp 0.4s ease forwards; }
+  .screen.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── HOME HEADER ─── */
+  .home-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 16px;
+  }
+  .home-header-left { flex: 1; min-width: 0; }
+  .home-header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 2.6rem;
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  .home-header h1 em { font-style: italic; color: var(--q1); }
+  .home-subtitle {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+  }
+
+  /* ─── HOME SWITCHER ROW (top of board state) ─── */
+  .home-switcher-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    min-height: 0;
+  }
+
+  .restart-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: white;
+    border: 1.5px solid #E0DDD8;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .restart-btn:hover { color: var(--ink); border-color: var(--ink); }
+
+  /* ─── QUESTION BACK BUTTON ─── */
+  .q-back {
+    background: none;
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s;
+  }
+  .q-back:hover { color: var(--ink); }
+
+  /* ─── QUESTION SUB-TEXT ─── */
+  .q-subtext {
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin-top: -24px;
+    margin-bottom: 32px;
+  }
+
+  /* ─── VIEW SWITCHER ─── */
+  .view-switcher {
+    display: flex;
+    gap: 3px;
+    background: white;
+    border: 1.5px solid #E0DDD8;
+    border-radius: 12px;
+    padding: 4px;
+    flex-shrink: 0;
+  }
+
+  .view-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s;
+    position: relative;
+  }
+  .view-btn:hover:not(.active) { background: var(--bg); }
+  .view-btn.active { background: var(--ink); }
+
+  .view-btn svg { display: block; pointer-events: none; }
+
+  /* stroke color depending on state */
+  .view-btn:not(.active) svg * { stroke: var(--ink-soft); }
+  .view-btn.active svg * { stroke: white; }
+
+  /* Tooltip */
+  .view-btn::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 0.58rem;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    padding: 4px 8px;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 10;
+  }
+  .view-btn:hover::after { opacity: 1; }
+
+  /* ─── ADD BUTTON ─── */
+  .add-task-btn {
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-top: 0;
+    margin-bottom: 24px;
+  }
+  .add-task-btn:hover { background: var(--q1); transform: translateY(-2px); }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state-wrap {
+    text-align: center;
+    padding: 52px 24px;
+    border: 1.5px dashed #C8C3BA;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+  }
+  .empty-state-icon { font-size: 2.2rem; margin-bottom: 14px; }
+  .empty-state-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.15rem;
+    font-weight: 400;
+    margin-bottom: 8px;
+  }
+  .empty-state-desc {
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    max-width: 260px;
+    margin: 0 auto;
+  }
+
+  /* ─── SHARED ─── */
+  .empty-hint {
+    font-size: 0.62rem;
+    color: var(--ink-soft);
+    font-style: italic;
+    opacity: 0.55;
+  }
+
+  /* ════════════════════════════════
+     VIEW 1 — 2x2 Grid
+  ════════════════════════════════ */
+  .matrix-axes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .axis-label-l, .axis-label-r {
+    font-size: 0.57rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: center;
+    padding: 2px 0;
+  }
+  .matrix-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .quadrant {
+    border-radius: 12px;
+    padding: 14px;
+    min-height: 130px;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .quadrant:hover { transform: translateY(-2px); }
+  .quadrant.q1 { background: var(--q1-pale); border: 1.5px solid var(--q1); }
+  .quadrant.q2 { background: var(--q2-pale); border: 1.5px solid var(--q2); }
+  .quadrant.q3 { background: var(--q3-pale); border: 1.5px solid var(--q3); }
+  .quadrant.q4 { background: var(--q4-pale); border: 1.5px solid var(--q4); }
+  .quadrant-label {
+    font-family: 'Fraunces', serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .q1 .quadrant-label { color: var(--q1); }
+  .q2 .quadrant-label { color: var(--q2); }
+  .q3 .quadrant-label { color: var(--q3); }
+  .q4 .quadrant-label { color: var(--q4); }
+  .quadrant-sublabel {
+    font-size: 0.57rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .task-chip {
+    display: block;
+    background: white;
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 0.69rem;
+    margin-bottom: 5px;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid transparent;
+  }
+  .q1 .task-chip:hover { border-color: var(--q1); }
+  .q2 .task-chip:hover { border-color: var(--q2); }
+  .q3 .task-chip:hover { border-color: var(--q3); }
+  .q4 .task-chip:hover { border-color: var(--q4); }
+
+  /* ════════════════════════════════
+     VIEW 2 — Swimlanes
+  ════════════════════════════════ */
+  .swim-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .swim-col { border-radius: 12px; overflow: hidden; }
+  .swim-col-header { padding: 10px 12px; }
+  .swim-col.q1 .swim-col-header { background: var(--q1); }
+  .swim-col.q2 .swim-col-header { background: var(--q2); }
+  .swim-col.q3 .swim-col-header { background: var(--q3); }
+  .swim-col.q4 .swim-col-header { background: var(--q4); }
+  .swim-col-name {
+    font-family: 'Fraunces', serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 1px;
+  }
+  .swim-col-sub {
+    font-size: 0.54rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.72);
+  }
+  .swim-col-body {
+    padding: 8px;
+    min-height: 70px;
+    border-radius: 0 0 10px 10px;
+  }
+  .swim-col.q1 .swim-col-body { background: var(--q1-pale); border: 1.5px solid var(--q1); border-top: none; }
+  .swim-col.q2 .swim-col-body { background: var(--q2-pale); border: 1.5px solid var(--q2); border-top: none; }
+  .swim-col.q3 .swim-col-body { background: var(--q3-pale); border: 1.5px solid var(--q3); border-top: none; }
+  .swim-col.q4 .swim-col-body { background: var(--q4-pale); border: 1.5px solid var(--q4); border-top: none; }
+  .swim-chip {
+    display: block;
+    background: white;
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 0.67rem;
+    margin-bottom: 5px;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: var(--transition);
+    border-left: 3px solid transparent;
+  }
+  .swim-col.q1 .swim-chip { border-left-color: var(--q1); }
+  .swim-col.q2 .swim-chip { border-left-color: var(--q2); }
+  .swim-col.q3 .swim-chip { border-left-color: var(--q3); }
+  .swim-col.q4 .swim-chip { border-left-color: var(--q4); }
+  .swim-chip:hover { transform: translateX(2px); }
+
+  /* ════════════════════════════════
+     VIEW 3 — Grouped List
+  ════════════════════════════════ */
+  .list-section { margin-bottom: 10px; }
+  .list-section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .list-section-header:hover { opacity: 0.85; }
+  .list-section.open .list-section-header { border-radius: 10px 10px 0 0; }
+  .list-section.q1 .list-section-header { background: var(--q1-pale); border: 1.5px solid var(--q1); }
+  .list-section.q2 .list-section-header { background: var(--q2-pale); border: 1.5px solid var(--q2); }
+  .list-section.q3 .list-section-header { background: var(--q3-pale); border: 1.5px solid var(--q3); }
+  .list-section.q4 .list-section-header { background: var(--q4-pale); border: 1.5px solid var(--q4); }
+  .list-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .q1 .list-dot { background: var(--q1); }
+  .q2 .list-dot { background: var(--q2); }
+  .q3 .list-dot { background: var(--q3); }
+  .q4 .list-dot { background: var(--q4); }
+  .list-header-text { flex: 1; }
+  .list-header-name { font-family: 'Fraunces', serif; font-size: 0.85rem; font-weight: 600; }
+  .q1 .list-header-name { color: var(--q1); }
+  .q2 .list-header-name { color: var(--q2); }
+  .q3 .list-header-name { color: var(--q3); }
+  .q4 .list-header-name { color: var(--q4); }
+  .list-header-sub {
+    font-size: 0.57rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-soft);
+  }
+  .list-count { font-size: 0.62rem; color: var(--ink-soft); }
+  .list-chevron {
+    font-size: 0.65rem;
+    color: var(--ink-soft);
+    transition: transform 0.25s;
+    display: inline-block;
+  }
+  .list-section.open .list-chevron { transform: rotate(180deg); }
+  .list-body { display: none; border-radius: 0 0 10px 10px; overflow: hidden; }
+  .list-section.open .list-body { display: block; }
+  .list-section.q1 .list-body { border: 1.5px solid var(--q1); border-top: none; }
+  .list-section.q2 .list-body { border: 1.5px solid var(--q2); border-top: none; }
+  .list-section.q3 .list-body { border: 1.5px solid var(--q3); border-top: none; }
+  .list-section.q4 .list-body { border: 1.5px solid var(--q4); border-top: none; }
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    background: white;
+    border-bottom: 1px solid #F0EDE8;
+    font-size: 0.73rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .list-row:hover { background: #FAFAF8; }
+  .list-row:last-child { border-bottom: none; }
+  .list-row-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .q1 .list-row-dot { background: var(--q1); }
+  .q2 .list-row-dot { background: var(--q2); }
+  .q3 .list-row-dot { background: var(--q3); }
+  .q4 .list-row-dot { background: var(--q4); }
+
+  /* ════════════════════════════════
+     VIEW 4 — Card Stack
+  ════════════════════════════════ */
+  .stack-list { display: flex; flex-direction: column; gap: 7px; }
+  .stack-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: white;
+    border-radius: 12px;
+    padding: 13px 15px;
+    border: 1.5px solid #E8E4DE;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .stack-card:hover { transform: translateX(4px); }
+  .stack-bar {
+    width: 4px;
+    border-radius: 2px;
+    align-self: stretch;
+    min-height: 32px;
+    flex-shrink: 0;
+  }
+  .stack-card.q1 .stack-bar { background: var(--q1); }
+  .stack-card.q2 .stack-bar { background: var(--q2); }
+  .stack-card.q3 .stack-bar { background: var(--q3); }
+  .stack-card.q4 .stack-bar { background: var(--q4); }
+  .stack-main { flex: 1; min-width: 0; }
+  .stack-task-name { font-size: 0.8rem; line-height: 1.3; margin-bottom: 4px; }
+  .stack-badge {
+    font-size: 0.57rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 100px;
+  }
+  .stack-card.q1 .stack-badge { background: var(--q1-pale); color: var(--q1); }
+  .stack-card.q2 .stack-badge { background: var(--q2-pale); color: var(--q2); }
+  .stack-card.q3 .stack-badge { background: var(--q3-pale); color: var(--q3); }
+  .stack-card.q4 .stack-badge { background: var(--q4-pale); color: var(--q4); }
+  .stack-emoji { font-size: 1.1rem; flex-shrink: 0; }
+
+  /* ════════════════════════════════
+     VIEW 5 — Scatter Plot
+  ════════════════════════════════ */
+  .scatter-wrap { position: relative; padding: 0 0 26px 26px; }
+  .scatter-y-label {
+    position: absolute;
+    left: 0; top: 50%;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg) translateY(50%);
+    font-size: 0.56rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .scatter-canvas {
+    position: relative;
+    width: 100%;
+    height: 290px;
+    background: white;
+    border-radius: 14px;
+    border: 1.5px solid #E0DDD8;
+    overflow: hidden;
+  }
+  .sc-q-bg { position: absolute; width: 50%; height: 50%; }
+  .sc-q-bg.q1 { top: 0; right: 0; background: var(--q1-pale); opacity: 0.5; }
+  .sc-q-bg.q2 { top: 0; left: 0; background: var(--q2-pale); opacity: 0.5; }
+  .sc-q-bg.q3 { bottom: 0; right: 0; background: var(--q3-pale); opacity: 0.5; }
+  .sc-q-bg.q4 { bottom: 0; left: 0; background: var(--q4-pale); opacity: 0.5; }
+  .sc-axis-h { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #D5D0C8; }
+  .sc-axis-v { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #D5D0C8; }
+  .sc-corner {
+    position: absolute;
+    font-family: 'Fraunces', serif;
+    font-size: 0.64rem;
+    font-weight: 600;
+    padding: 7px;
+    opacity: 0.4;
+  }
+  .sc-corner.q1 { top: 0; right: 0; color: var(--q1); }
+  .sc-corner.q2 { top: 0; left: 0; color: var(--q2); }
+  .sc-corner.q3 { bottom: 0; right: 0; color: var(--q3); }
+  .sc-corner.q4 { bottom: 0; left: 0; color: var(--q4); }
+  .sc-bubble {
+    position: absolute;
+    border-radius: 50%;
+    width: 42px; height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.52rem;
+    text-align: center;
+    line-height: 1.2;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    transition: transform 0.2s;
+    color: white;
+    padding: 3px;
+  }
+  .sc-bubble:hover { transform: translate(-50%, -50%) scale(1.18); }
+  .sc-bubble.q1 { background: var(--q1); }
+  .sc-bubble.q2 { background: var(--q2); }
+  .sc-bubble.q3 { background: var(--q3); }
+  .sc-bubble.q4 { background: var(--q4); }
+  .scatter-x-label {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0 0;
+    font-size: 0.56rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+  }
+
+  /* ─── TASK ENTRY ─── */
+  .entry-header { margin-bottom: 36px; }
+  .entry-header h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 300;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .entry-header h2 em { font-style: italic; color: var(--ink); }
+  .entry-header h2 strong { font-weight: 600; font-style: italic; }
+  .task-input-wrap { position: relative; margin-bottom: 12px; }
+  .task-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--ink);
+    padding: 12px 0;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 300;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .task-input::placeholder { color: var(--ink-soft); opacity: 0.5; }
+  .task-input:focus { border-color: var(--q1); }
+  .task-input-hint {
+    font-size: 0.63rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.05em;
+    margin-bottom: 36px;
+  }
+  .nav-row { display: flex; gap: 12px; align-items: center; }
+  .btn-primary {
+    flex: 1;
+    padding: 15px 24px;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .btn-primary:hover { background: var(--q1); transform: translateY(-2px); }
+  .btn-ghost {
+    padding: 15px 18px;
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1.5px solid #D5D0C8;
+    border-radius: var(--radius);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* ─── QUESTION SCREEN ─── */
+  .progress-dots { display: flex; gap: 6px; margin-bottom: 48px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #D5D0C8; transition: var(--transition); }
+  .dot.active { background: var(--ink); width: 20px; border-radius: 3px; }
+  .dot.done { background: var(--ink); }
+  .question-screen h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 300;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    margin-bottom: 44px;
+  }
+  .question-screen h2 strong { font-weight: 600; font-style: italic; }
+  .answer-cards { display: flex; flex-direction: column; gap: 11px; margin-bottom: 32px; }
+  .answer-card {
+    padding: 18px 22px;
+    border-radius: var(--radius);
+    border: 1.5px solid #D5D0C8;
+    cursor: pointer;
+    transition: var(--transition);
+    background: white;
+  }
+  .answer-card:hover { border-color: var(--ink); transform: translateX(4px); }
+  .answer-card.selected { border-color: var(--ink); background: var(--ink); color: var(--bg); transform: translateX(4px); }
+  .answer-card-label { font-family: 'Fraunces', serif; font-size: 1.05rem; margin-bottom: 3px; }
+  .answer-card-desc { font-size: 0.68rem; color: var(--ink-soft); line-height: 1.5; }
+  .answer-card.selected .answer-card-desc { color: #9A9590; }
+
+  /* ─── RESULT ─── */
+  .result-screen { text-align: center; }
+  .result-badge {
+    width: 96px; height: 96px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 22px;
+    font-size: 2.2rem;
+    animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.5); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .result-task-name {
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--ink-soft);
+    margin-bottom: 22px;
+    animation: fadeUp 0.4s ease 0.25s both;
+  }
+  .result-quadrant-name {
+    font-family: 'Fraunces', serif;
+    font-size: 2.6rem;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 8px;
+    animation: fadeUp 0.4s ease 0.2s both;
+  }
+  .result-tag {
+    display: inline-block;
+    font-size: 0.63rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 22px;
+    animation: fadeUp 0.4s ease 0.3s both;
+  }
+  .result-guidance {
+    background: white;
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    margin-bottom: 28px;
+    text-align: left;
+    animation: fadeUp 0.4s ease 0.4s both;
+  }
+  .result-guidance strong { color: var(--ink); }
+
+  /* ─── DETAIL ─── */
+  .detail-back {
+    background: none; border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-soft); cursor: pointer; padding: 0; margin-bottom: 28px;
+    display: flex; align-items: center; gap: 5px; transition: color 0.2s;
+  }
+  .detail-back:hover { color: var(--ink); }
+  .detail-card { border-radius: var(--radius); padding: 26px; margin-bottom: 14px; }
+  .detail-task-name {
+    font-family: 'Fraunces', serif;
+    font-size: 1.7rem; font-weight: 300; line-height: 1.2; margin-bottom: 14px;
+    cursor: text;
+    border-bottom: 1.5px solid transparent;
+    transition: border-color 0.2s;
+    padding-bottom: 2px;
+  }
+  .detail-task-name:hover { border-bottom-color: currentColor; opacity: 0.7; }
+  .detail-task-input {
+    font-family: 'Fraunces', serif;
+    font-size: 1.7rem; font-weight: 300; line-height: 1.2; margin-bottom: 14px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid currentColor;
+    outline: none;
+    color: var(--ink);
+    padding-bottom: 2px;
+    display: block;
+  }
+  .detail-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .btn-danger {
+    padding: 11px 16px; background: transparent; color: var(--q1);
+    border: 1.5px solid var(--q1); border-radius: 10px;
+    font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.05em;
+    cursor: pointer; transition: var(--transition);
+  }
+  .btn-danger:hover { background: var(--q1); color: white; }
+  .btn-secondary {
+    flex: 1; padding: 11px 16px; background: transparent; color: var(--ink);
+    border: 1.5px solid #D5D0C8; border-radius: 10px;
+    font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.05em;
+    cursor: pointer; transition: var(--transition);
+  }
+  .btn-secondary:hover { border-color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════ HOME ══════ -->
+  <div class="screen active" id="screen-home">
+
+    <!-- View switcher — hidden until tasks exist, always at top -->
+    <div class="home-switcher-row" id="home-switcher-row">
+      <div class="view-switcher" id="view-switcher" role="toolbar" aria-label="Switch view" style="display:none;">
+        <button class="view-btn active" data-view="grid" data-tip="Grid" onclick="switchView('grid',this)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2"/>
+            <rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.2"/>
+          </svg>
+        </button>
+        <button class="view-btn" data-view="swim" data-tip="Swimlanes" onclick="switchView('swim',this)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="1.5" width="3.5" height="13" rx="1.2"/><rect x="6.25" y="1.5" width="3.5" height="13" rx="1.2"/>
+            <rect x="11.5" y="1.5" width="3.5" height="13" rx="1.2"/>
+          </svg>
+        </button>
+        <button class="view-btn" data-view="list" data-tip="List" onclick="switchView('list',this)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.6" stroke-linecap="round">
+            <circle cx="3.2" cy="4.5" r="1.3"/><line x1="6.5" y1="4.5" x2="14.5" y2="4.5"/>
+            <circle cx="3.2" cy="8.5" r="1.3"/><line x1="6.5" y1="8.5" x2="14.5" y2="8.5"/>
+            <circle cx="3.2" cy="12.5" r="1.3"/><line x1="6.5" y1="12.5" x2="14.5" y2="12.5"/>
+          </svg>
+        </button>
+        <button class="view-btn" data-view="stack" data-tip="Cards" onclick="switchView('stack',this)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1.5" y="2" width="13" height="3.5" rx="1.2"/><rect x="1.5" y="6.5" width="13" height="3.5" rx="1.2"/>
+            <rect x="1.5" y="11" width="13" height="3.5" rx="1.2"/>
+          </svg>
+        </button>
+        <button class="view-btn" data-view="scatter" data-tip="Scatter" onclick="switchView('scatter',this)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.6" stroke-linecap="round">
+            <line x1="2.5" y1="13.5" x2="2.5" y2="2"/><line x1="2.5" y1="13.5" x2="14" y2="13.5"/>
+            <circle cx="5.5" cy="10" r="1.5"/><circle cx="8.5" cy="6.5" r="1.5"/>
+            <circle cx="11.5" cy="4" r="1.5"/><circle cx="6.5" cy="12" r="1.5"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Restart button — shown alongside view switcher -->
+      <button class="restart-btn" id="restart-btn" onclick="restartApp()" title="Start over" style="display:none;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 8a5.5 5.5 0 1 0 1.1-3.3"/>
+          <polyline points="2.5,2.5 2.5,5.5 5.5,5.5"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Heading — hidden once tasks exist -->
+    <div id="home-heading" class="home-header">
+      <div class="home-header-left">
+        <h1>What actually <strong><em>matters</em></strong><br>right now?</h1>
+        <p class="home-subtitle">Not everything that feels urgent is actually important.</p>
+      </div>
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div id="empty-state" class="empty-state-wrap">
+      <div class="empty-state-icon">🧭</div>
+      <div class="empty-state-title">Your board is empty</div>
+      <div class="empty-state-desc">Add your first task and we'll help you figure out exactly where it belongs — no guessing required.</div>
+    </div>
+
+    <!-- MATRIX VIEWS -->
+    <div id="views-wrap" style="display:none;">
+
+      <!-- VIEW 1: Grid -->
+      <div id="view-grid">
+        <div class="matrix-axes">
+          <div class="axis-label-l">← Urgent</div>
+          <div class="axis-label-r">Not urgent →</div>
+        </div>
+        <div class="matrix-grid">
+          <div class="quadrant q1">
+            <div class="quadrant-label">Do First</div>
+            <div class="quadrant-sublabel">Urgent · Important</div>
+            <div id="g-q1"></div>
+          </div>
+          <div class="quadrant q2">
+            <div class="quadrant-label">Schedule</div>
+            <div class="quadrant-sublabel">Not urgent · Important</div>
+            <div id="g-q2"></div>
+          </div>
+          <div class="quadrant q3">
+            <div class="quadrant-label">Delegate</div>
+            <div class="quadrant-sublabel">Urgent · Not important</div>
+            <div id="g-q3"></div>
+          </div>
+          <div class="quadrant q4">
+            <div class="quadrant-label">Eliminate</div>
+            <div class="quadrant-sublabel">Not urgent · Not important</div>
+            <div id="g-q4"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: Swimlanes -->
+      <div id="view-swim" style="display:none;">
+        <div class="swim-cols">
+          <div class="swim-col q1">
+            <div class="swim-col-header"><div class="swim-col-name">Do First</div><div class="swim-col-sub">Urgent · Important</div></div>
+            <div class="swim-col-body" id="s-q1"></div>
+          </div>
+          <div class="swim-col q2">
+            <div class="swim-col-header"><div class="swim-col-name">Schedule</div><div class="swim-col-sub">Not urgent · Important</div></div>
+            <div class="swim-col-body" id="s-q2"></div>
+          </div>
+          <div class="swim-col q3">
+            <div class="swim-col-header"><div class="swim-col-name">Delegate</div><div class="swim-col-sub">Urgent · Not important</div></div>
+            <div class="swim-col-body" id="s-q3"></div>
+          </div>
+          <div class="swim-col q4">
+            <div class="swim-col-header"><div class="swim-col-name">Eliminate</div><div class="swim-col-sub">Not urgent · Not important</div></div>
+            <div class="swim-col-body" id="s-q4"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: Grouped List -->
+      <div id="view-list" style="display:none;">
+        <div class="list-section q1 open" id="ls-q1">
+          <div class="list-section-header" onclick="toggleListSection('ls-q1')">
+            <div class="list-dot"></div>
+            <div class="list-header-text"><div class="list-header-name">Do First</div><div class="list-header-sub">Urgent · Important</div></div>
+            <span class="list-count" id="lc-q1"></span>
+            <span class="list-chevron">▾</span>
+          </div>
+          <div class="list-body" id="lb-q1"></div>
+        </div>
+        <div class="list-section q2 open" id="ls-q2">
+          <div class="list-section-header" onclick="toggleListSection('ls-q2')">
+            <div class="list-dot"></div>
+            <div class="list-header-text"><div class="list-header-name">Schedule</div><div class="list-header-sub">Not urgent · Important</div></div>
+            <span class="list-count" id="lc-q2"></span>
+            <span class="list-chevron">▾</span>
+          </div>
+          <div class="list-body" id="lb-q2"></div>
+        </div>
+        <div class="list-section q3 open" id="ls-q3">
+          <div class="list-section-header" onclick="toggleListSection('ls-q3')">
+            <div class="list-dot"></div>
+            <div class="list-header-text"><div class="list-header-name">Delegate</div><div class="list-header-sub">Urgent · Not important</div></div>
+            <span class="list-count" id="lc-q3"></span>
+            <span class="list-chevron">▾</span>
+          </div>
+          <div class="list-body" id="lb-q3"></div>
+        </div>
+        <div class="list-section q4 open" id="ls-q4">
+          <div class="list-section-header" onclick="toggleListSection('ls-q4')">
+            <div class="list-dot"></div>
+            <div class="list-header-text"><div class="list-header-name">Eliminate</div><div class="list-header-sub">Not urgent · Not important</div></div>
+            <span class="list-count" id="lc-q4"></span>
+            <span class="list-chevron">▾</span>
+          </div>
+          <div class="list-body" id="lb-q4"></div>
+        </div>
+      </div>
+
+      <!-- VIEW 4: Card Stack -->
+      <div id="view-stack" style="display:none;">
+        <div class="stack-list" id="stack-list"></div>
+      </div>
+
+      <!-- VIEW 5: Scatter -->
+      <div id="view-scatter" style="display:none;">
+        <div class="scatter-wrap">
+          <div class="scatter-y-label">Important ↑</div>
+          <div class="scatter-canvas" id="scatter-canvas">
+            <div class="sc-q-bg q2"></div>
+            <div class="sc-q-bg q1"></div>
+            <div class="sc-q-bg q4"></div>
+            <div class="sc-q-bg q3"></div>
+            <div class="sc-axis-h"></div>
+            <div class="sc-axis-v"></div>
+            <div class="sc-corner q2">Schedule</div>
+            <div class="sc-corner q1">Do First</div>
+            <div class="sc-corner q3">Delegate</div>
+            <div class="sc-corner q4">Eliminate</div>
+          </div>
+          <div class="scatter-x-label">
+            <span>← Not urgent</span><span>Urgent →</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /views-wrap -->
+
+    <button class="add-task-btn" id="add-task-btn" onclick="goTo('screen-entry')">+ Add a task</button>
+
+  </div>
+
+  <!-- ══════ TASK ENTRY ══════ -->
+  <div class="screen" id="screen-entry">
+    <button class="q-back" onclick="goTo('screen-home')">← Back</button>
+    <div class="entry-header">
+      <h2>What's on your <strong>mind?</strong></h2>
+      <p style="margin-top:10px; font-size:0.75rem; color:var(--ink-soft); line-height:1.6;">Keep it short — one task at a time works best.</p>
+    </div>
+    <div class="task-input-wrap">
+      <input class="task-input" id="task-input" type="text" placeholder='e.g. "Prepare the quarterly report"' autocomplete="off"/>
+    </div>
+    <div class="nav-row" style="margin-top:32px;">
+      <button class="btn-primary" onclick="startQuestions()">Let's figure it out →</button>
+    </div>
+  </div>
+
+  <!-- ══════ Q1 ══════ -->
+  <div class="screen question-screen" id="screen-q1">
+    <button class="q-back" onclick="goTo('screen-entry')">← Back</button>
+    <div class="progress-dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <h2>When does this actually <strong>need to happen?</strong></h2>
+    <p class="q-subtext">Set aside how it makes you feel. What does the calendar actually say?</p>
+    <div class="answer-cards">
+      <div class="answer-card" onclick="answer('urgency', 'now', this)">
+        <div class="answer-card-label">Right now</div>
+        <div class="answer-card-desc">Within 24 hours or someone is blocked waiting on this</div>
+      </div>
+      <div class="answer-card" onclick="answer('urgency', 'week', this)">
+        <div class="answer-card-label">This week</div>
+        <div class="answer-card-desc">Needs attention in the next few days</div>
+      </div>
+      <div class="answer-card" onclick="answer('urgency', 'eventually', this)">
+        <div class="answer-card-label">Eventually</div>
+        <div class="answer-card-desc">No deadline, it can wait weeks or longer</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ Q2 ══════ -->
+  <div class="screen question-screen" id="screen-q2">
+    <button class="q-back" onclick="goTo('screen-q1')">← Back</button>
+    <div class="progress-dots"><div class="dot done"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+    <h2>Does this move the needle on what <strong>actually matters?</strong></h2>
+    <p class="q-subtext">Think about your real goals, not just what feels productive.</p>
+    <div class="answer-cards">
+      <div class="answer-card" onclick="answer('importance', 'core', this)">
+        <div class="answer-card-label">It's core</div>
+        <div class="answer-card-desc">Directly gets me closer to something that matters</div>
+      </div>
+      <div class="answer-card" onclick="answer('importance', 'somewhat', this)">
+        <div class="answer-card-label">Somewhat helps</div>
+        <div class="answer-card-desc">It's related, but not what I should be focused on right now</div>
+      </div>
+      <div class="answer-card" onclick="answer('importance', 'not-really', this)">
+        <div class="answer-card-label">Not really</div>
+        <div class="answer-card-desc">It's busywork, a favor, or an interruption</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ Q3 ══════ -->
+  <div class="screen question-screen" id="screen-q3">
+    <button class="q-back" onclick="goTo('screen-q2')">← Back</button>
+    <div class="progress-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div><div class="dot"></div></div>
+    <h2>What happens if this <strong>doesn't get done?</strong></h2>
+    <p class="q-subtext">Be honest. Worst case.</p>
+    <div class="answer-cards">
+      <div class="answer-card" onclick="answer('consequence', 'critical', this)">
+        <div class="answer-card-label">Things fall apart</div>
+        <div class="answer-card-desc">Someone is seriously affected or a key goal gets missed</div>
+      </div>
+      <div class="answer-card" onclick="answer('consequence', 'recoverable', this)">
+        <div class="answer-card-label">It's annoying but recoverable</div>
+        <div class="answer-card-desc">Some friction, but nothing that can't be undone</div>
+      </div>
+      <div class="answer-card" onclick="answer('consequence', 'fine', this)">
+        <div class="answer-card-label">Life goes on</div>
+        <div class="answer-card-desc">Minimal impact, mostly nice-to-have</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ Q4 ══════ -->
+  <div class="screen question-screen" id="screen-q4">
+    <button class="q-back" onclick="goTo('screen-q3')">← Back</button>
+    <div class="progress-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div></div>
+    <h2>Could <strong>someone else</strong> handle this?</h2>
+    <p class="q-subtext">Be honest about this one.</p>
+    <div class="answer-cards">
+      <div class="answer-card" onclick="answer('ownership', 'only-me', this)">
+        <div class="answer-card-label">Only I can do this</div>
+        <div class="answer-card-desc">It needs my specific skills, context, or authority</div>
+      </div>
+      <div class="answer-card" onclick="answer('ownership', 'with-help', this)">
+        <div class="answer-card-label">Someone could help</div>
+        <div class="answer-card-desc">Others could handle it with some guidance from me</div>
+      </div>
+      <div class="answer-card" onclick="answer('ownership', 'anyone', this)">
+        <div class="answer-card-label">Anyone could do this</div>
+        <div class="answer-card-desc">It's straightforward and doesn't need me specifically</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ RESULT ══════ -->
+  <div class="screen result-screen" id="screen-result">
+    <button class="q-back" onclick="goTo('screen-q4')">← Back</button>
+
+    <!-- TOP: the verdict -->
+    <div class="result-badge" id="result-badge"></div>
+    <div class="result-quadrant-name" id="result-quadrant-name"></div>
+    <div class="result-tag" id="result-tag"></div>
+    <div class="result-task-name" id="result-task-name"></div>
+
+    <!-- MIDDLE: guidance -->
+    <div class="result-guidance" id="result-guidance"></div>
+    <div class="nav-row" style="justify-content:center; margin-top: 20px;">
+      <button class="btn-ghost" onclick="goTo('screen-home')">← Back to board</button>
+      <button class="btn-primary" onclick="saveTask()">Save to board →</button>
+    </div>
+  </div>
+
+  <!-- ══════ DETAIL ══════ -->
+  <div class="screen" id="screen-detail">
+    <button class="detail-back" onclick="goTo('screen-home')">← Back</button>
+    <div class="detail-card" id="detail-card">
+      <div class="quadrant-label" id="detail-q-label"></div>
+      <div class="quadrant-sublabel" id="detail-q-sublabel"></div>
+      <div class="detail-task-name" id="detail-task-name" onclick="startRename()" title="Click to rename"></div>
+      <input class="detail-task-input" id="detail-task-input" type="text" style="display:none;"
+        onblur="commitRename()" onkeydown="if(event.key==='Enter')this.blur(); if(event.key==='Escape')cancelRename();"/>
+      <div class="result-guidance" id="detail-guidance" style="margin-bottom:0;"></div>
+      <div class="detail-actions">
+        <button class="btn-danger" onclick="deleteTask()">Delete</button>
+        <button class="btn-secondary" onclick="reevaluate()">Re-evaluate</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+  const tasks = [];
+  let currentAnswers = {};
+  let currentTask = '';
+  let currentTaskIndex = null;
+  let currentView = 'grid';
+
+  const quadrantData = {
+    q1: { name:'Do First', sublabel:'Urgent · Important', emoji:'🔥', color:'var(--q1)', pale:'var(--q1-pale)', border:'var(--q1)', tag:'Urgent & Important', guidance:'<strong>Do this today.</strong> Block time now and protect it. This task directly affects outcomes and has a time constraint — delay will cost you. Focus here first before anything else.' },
+    q2: { name:'Schedule', sublabel:'Not urgent · Important', emoji:'📅', color:'var(--q2)', pale:'var(--q2-pale)', border:'var(--q2)', tag:'Important, not urgent', guidance:'<strong>Put it on the calendar.</strong> This matters but isn\'t screaming at you yet — which means it\'s easy to keep deferring. Schedule a specific time this week or next.' },
+    q3: { name:'Delegate', sublabel:'Urgent · Not important', emoji:'🤝', color:'var(--q3)', pale:'var(--q3-pale)', border:'var(--q3)', tag:'Urgent, not important', guidance:'<strong>Pass this to someone else.</strong> It needs to happen soon, but it doesn\'t require you specifically. Delegating this frees you for the work only you can do.' },
+    q4: { name:'Eliminate', sublabel:'Not urgent · Not important', emoji:'🗑', color:'var(--q4)', pale:'var(--q4-pale)', border:'var(--q4)', tag:'Low priority', guidance:'<strong>Let this go.</strong> If there\'s no real consequence to dropping it, drop it. Eliminating low-value tasks is one of the highest-leverage moves you can make.' }
+  };
+
+  const scatterPos = {
+    q1:[{l:'72%',t:'16%'},{l:'82%',t:'30%'},{l:'64%',t:'26%'},{l:'78%',t:'42%'},{l:'88%',t:'18%'}],
+    q2:[{l:'22%',t:'18%'},{l:'35%',t:'32%'},{l:'14%',t:'36%'},{l:'42%',t:'20%'},{l:'28%',t:'42%'}],
+    q3:[{l:'68%',t:'68%'},{l:'80%',t:'78%'},{l:'58%',t:'80%'},{l:'76%',t:'86%'},{l:'86%',t:'64%'}],
+    q4:[{l:'22%',t:'72%'},{l:'36%',t:'82%'},{l:'14%',t:'84%'},{l:'42%',t:'70%'},{l:'28%',t:'86%'}]
+  };
+
+  function goTo(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function switchView(view, btn) {
+    currentView = view;
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    ['grid','swim','list','stack','scatter'].forEach(v => {
+      document.getElementById('view-' + v).style.display = (v === view) ? 'block' : 'none';
+    });
+  }
+
+  function startQuestions() {
+    const input = document.getElementById('task-input');
+    if (!input.value.trim()) { input.focus(); return; }
+    currentTask = input.value.trim();
+    currentAnswers = {};
+    document.querySelectorAll('.answer-card').forEach(c => c.classList.remove('selected'));
+    goTo('screen-q1');
+  }
+
+  function answer(key, value, el) {
+    currentAnswers[key] = value;
+    el.parentElement.querySelectorAll('.answer-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    setTimeout(() => {
+      if (key === 'urgency')     goTo('screen-q2');
+      else if (key === 'importance')  goTo('screen-q3');
+      else if (key === 'consequence') goTo('screen-q4');
+      else showResult();
+    }, 340);
+  }
+
+  function getQuadrant() {
+    const { urgency, importance, consequence, ownership } = currentAnswers;
+
+    // Urgent = right now or this week
+    const isUrgent = urgency === 'now' || urgency === 'week';
+    // Important = core importance AND serious consequence
+    const isImportant = importance === 'core' || (importance === 'somewhat' && consequence === 'critical');
+    // Delegatable = others could do it
+    const isDelegatable = ownership === 'with-help' || ownership === 'anyone';
+
+    if (isUrgent && isImportant && !isDelegatable) return 'q1'; // Do First
+    if (!isUrgent && isImportant)                  return 'q2'; // Schedule
+    if (isUrgent && isImportant && isDelegatable)  return 'q3'; // Delegate
+    if (isUrgent && !isImportant)                  return 'q3'; // Delegate
+    return 'q4'; // Eliminate
+  }
+
+  function showResult() {
+    const q = getQuadrant();
+    const d = quadrantData[q];
+    document.getElementById('result-badge').textContent = d.emoji;
+    document.getElementById('result-badge').style.background = d.pale;
+    document.getElementById('result-task-name').textContent = '"' + currentTask + '"';
+    const qn = document.getElementById('result-quadrant-name');
+    qn.textContent = d.name; qn.style.color = d.color;
+    const tag = document.getElementById('result-tag');
+    tag.textContent = d.tag; tag.style.background = d.pale; tag.style.color = d.color;
+    document.getElementById('result-guidance').innerHTML = d.guidance;
+    goTo('screen-result');
+  }
+
+  function saveTask() {
+    tasks.push({ name: currentTask, quadrant: getQuadrant() });
+    renderAll();
+    document.getElementById('task-input').value = '';
+    currentAnswers = {};
+    goTo('screen-home');
+  }
+
+  function renderAll() {
+    const has = tasks.length > 0;
+    document.getElementById('empty-state').style.display = has ? 'none' : 'block';
+    document.getElementById('views-wrap').style.display = has ? 'block' : 'none';
+    document.getElementById('view-switcher').style.display = has ? 'flex' : 'none';
+    document.getElementById('restart-btn').style.display = has ? 'flex' : 'none';
+    document.getElementById('home-heading').style.display = has ? 'none' : 'block';
+    document.getElementById('add-task-btn').textContent = has ? '+ Add another task' : '+ Add a task';
+    document.getElementById('add-task-btn').style.marginTop = has ? '20px' : '0';
+    if (!has) return;
+    renderGrid(); renderSwim(); renderList(); renderStack(); renderScatter();
+  }
+
+  function chip(t, idx) {
+    return `<span class="task-chip" onclick="openDetail(${idx},event)">${t.name}</span>`;
+  }
+
+  function renderGrid() {
+    ['q1','q2','q3','q4'].forEach(q => {
+      const el = document.getElementById('g-' + q);
+      const qt = tasks.filter(t => t.quadrant === q);
+      el.innerHTML = qt.length ? qt.map(t => chip(t, tasks.indexOf(t))).join('') : '<span class="empty-hint">None here</span>';
+    });
+  }
+
+  function renderSwim() {
+    ['q1','q2','q3','q4'].forEach(q => {
+      const el = document.getElementById('s-' + q);
+      const qt = tasks.filter(t => t.quadrant === q);
+      el.innerHTML = qt.length
+        ? qt.map(t => `<div class="swim-chip" onclick="openDetail(${tasks.indexOf(t)},event)">${t.name}</div>`).join('')
+        : '<span class="empty-hint" style="display:block;padding:6px 2px">None here</span>';
+    });
+  }
+
+  function renderList() {
+    ['q1','q2','q3','q4'].forEach(q => {
+      const qt = tasks.filter(t => t.quadrant === q);
+      document.getElementById('lc-' + q).textContent = qt.length + (qt.length === 1 ? ' task' : ' tasks');
+      const body = document.getElementById('lb-' + q);
+      body.innerHTML = qt.length
+        ? qt.map(t => `<div class="list-row ${q}" onclick="openDetail(${tasks.indexOf(t)},event)"><div class="list-row-dot"></div>${t.name}</div>`).join('')
+        : `<div class="list-row"><div class="list-row-dot" style="opacity:0"></div><span class="empty-hint">None here</span></div>`;
+    });
+  }
+
+  function renderStack() {
+    const order = ['q1','q2','q3','q4'];
+    const sorted = [...tasks].sort((a,b) => order.indexOf(a.quadrant) - order.indexOf(b.quadrant));
+    document.getElementById('stack-list').innerHTML = sorted.map(t => {
+      const idx = tasks.indexOf(t);
+      const d = quadrantData[t.quadrant];
+      return `<div class="stack-card ${t.quadrant}" onclick="openDetail(${idx},event)">
+        <div class="stack-bar"></div>
+        <div class="stack-main">
+          <div class="stack-task-name">${t.name}</div>
+          <div><span class="stack-badge">${d.name}</span></div>
+        </div>
+        <div class="stack-emoji">${d.emoji}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderScatter() {
+    const canvas = document.getElementById('scatter-canvas');
+    canvas.querySelectorAll('.sc-bubble').forEach(b => b.remove());
+    const counters = {q1:0,q2:0,q3:0,q4:0};
+    tasks.forEach((t, idx) => {
+      const q = t.quadrant;
+      const pos = scatterPos[q][counters[q] % scatterPos[q].length];
+      counters[q]++;
+      const b = document.createElement('div');
+      b.className = `sc-bubble ${q}`;
+      b.style.left = pos.l; b.style.top = pos.t;
+      b.textContent = t.name.split(' ').slice(0,2).join(' ');
+      b.title = t.name;
+      b.onclick = (e) => openDetail(idx, e);
+      canvas.appendChild(b);
+    });
+  }
+
+  function toggleListSection(id) {
+    document.getElementById(id).classList.toggle('open');
+  }
+
+  function openDetail(idx, e) {
+    e.stopPropagation();
+    currentTaskIndex = idx;
+    const t = tasks[idx];
+    const d = quadrantData[t.quadrant];
+    const card = document.getElementById('detail-card');
+    card.style.background = d.pale;
+    card.style.border = '1.5px solid ' + d.border;
+    document.getElementById('detail-q-label').textContent = d.name;
+    document.getElementById('detail-q-label').style.color = d.color;
+    document.getElementById('detail-q-sublabel').textContent = d.sublabel;
+    document.getElementById('detail-task-name').textContent = t.name;
+    document.getElementById('detail-guidance').innerHTML = d.guidance;
+    goTo('screen-detail');
+  }
+
+  function startRename() {
+    const nameEl = document.getElementById('detail-task-name');
+    const inputEl = document.getElementById('detail-task-input');
+    inputEl.value = tasks[currentTaskIndex].name;
+    nameEl.style.display = 'none';
+    inputEl.style.display = 'block';
+    inputEl.focus();
+    inputEl.select();
+  }
+
+  function commitRename() {
+    const nameEl = document.getElementById('detail-task-name');
+    const inputEl = document.getElementById('detail-task-input');
+    const newName = inputEl.value.trim();
+    if (newName) {
+      tasks[currentTaskIndex].name = newName;
+      nameEl.textContent = newName;
+      renderAll();
+    }
+    inputEl.style.display = 'none';
+    nameEl.style.display = 'block';
+  }
+
+  function cancelRename() {
+    const nameEl = document.getElementById('detail-task-name');
+    const inputEl = document.getElementById('detail-task-input');
+    inputEl.style.display = 'none';
+    nameEl.style.display = 'block';
+  }
+
+  function restartApp() {
+    if (!confirm('Clear all tasks and start over?')) return;
+    tasks.length = 0;
+    currentAnswers = {};
+    currentTask = '';
+    currentTaskIndex = null;
+    document.getElementById('task-input').value = '';
+    renderAll();
+    goTo('screen-home');
+  }
+
+  function deleteTask() {
+    tasks.splice(currentTaskIndex, 1);
+    renderAll();
+    goTo('screen-home');
+  }
+
+  function reevaluate() {
+    currentTask = tasks[currentTaskIndex].name;
+    tasks.splice(currentTaskIndex, 1);
+    currentAnswers = {};
+    document.querySelectorAll('.answer-card').forEach(c => c.classList.remove('selected'));
+    goTo('screen-q1');
+  }
+
+  document.getElementById('task-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startQuestions();
+  });
+</script>
+</body>
+</html>
